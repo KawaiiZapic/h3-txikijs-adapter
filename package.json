@@ -1,0 +1,31 @@
+{
+  "name": "h3-txikijs-adapter",
+  "version": "0.1.0",
+  "description": "",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "KawaiiZapic",
+  "license": "ISC",
+  "packageManager": "pnpm@10.11.0",
+  "devDependencies": {
+    "@txikijs/types": "^24.12.0",
+    "@types/http-headers": "^3.0.4",
+    "h3": "2.0.0-beta.3",
+    "typescript": "^5.9.2"
+  },
+  "peerDependencies": {
+    "h3": "^2.0.0"
+  },
+  "dependencies": {
+    "http-headers": "^3.0.2"
+  },
+  "files": [
+    "dist"
+  ]
+}

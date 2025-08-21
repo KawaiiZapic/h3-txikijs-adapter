@@ -1,0 +1,25 @@
+{
+  "include": ["src/**/*.ts"],
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "isolatedModules": true,
+    "typeRoots": [
+	    "node_modules/@txikijs/types",
+	    "node_modules/@types"
+    ],
+    "target": "es2023",
+    "module": "esnext",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "lib": [
+      "ES2023",
+      "WebWorker"
+    ],
+    "outDir": "dist",
+    "sourceMap": true,
+    "moduleResolution": "bundler"
+  }
+}
