@@ -12,10 +12,12 @@ export interface ServeOptions {
   maxBodySize?: number; // Max body size can received from client, throw an error if size is exceeded.
   maxHeaderSize?: number; // Max headers size can received from client, throw an error if size is exceeded.
   enableLog?: boolean; // Enable a simple logging for debug.
+  signal?: AbortSignal; // A signal to stop server
 }
 
-interface ServerContext extends Required<ServeOptions> {
+interface ServerContext extends Required<Omit<ServeOptions, "signal">> {
   log: (msg: string) => void;
+  signal?: AbortSignal;
 }
 
 class H3ServerRequest extends Request {
@@ -148,8 +150,13 @@ export const serve = async (app: H3, _options?: ServeOptions) => {
   };
   const socket = await tjs.listen("tcp", ctx.host, ctx.port) as tjs.Listener;
   ctx.log(`Server start at http://${ctx.host}:${ctx.port}`);
-  while (true) {
+  ctx.signal?.addEventListener("abort", () => {
+    socket.close();
+    ctx.log("Server closed");
+  });
+  while (!ctx.signal?.aborted) {
     const conn = await socket.accept();
+    if (typeof conn === "undefined") continue;
     ctx.log("Accept from " + conn.remoteAddress.ip + ":" + conn.remoteAddress.port);
     void handleRequest(conn, app.fetch, ctx);
   }
