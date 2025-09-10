@@ -122,7 +122,7 @@ const handleRequest = async (conn: tjs.Connection, handler: RequestHandler, ctx:
       resp.headers.set("Content-Length", blob.size.toString());
       respStream = blob.stream();
     }
-    await conn.write(encoder.encode(`HTTP/1.1 ${resp.status} ${resp.statusText}\n${buildHeader(resp.headers)}\r\n`));
+    await conn.write(encoder.encode(`HTTP/1.1 ${resp.status} ${resp.statusText}\r\n${buildHeader(resp.headers)}\r\n`));
     await respStream.pipeTo(conn.writable);
     ctx.log(`${req.method} ${req.url} -> ${resp.status}`);
   } catch (e) {
