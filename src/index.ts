@@ -117,6 +117,8 @@ const handleRequest = async (conn: tjs.Connection, handler: RequestHandler, ctx:
     if (resp._bodyInit instanceof ReadableStream) {
       // @ts-expect-error
       respStream = resp._bodyInit;
+    } else if (resp.body instanceof ReadableStream) {
+      respStream = resp.body;
     } else {
       const blob = await resp.blob();
       resp.headers.set("Content-Length", blob.size.toString());
@@ -129,7 +131,7 @@ const handleRequest = async (conn: tjs.Connection, handler: RequestHandler, ctx:
     console.error(e);
     try {
       await conn.write(createResponse(500, e));
-    } catch (e) { }
+    } catch { }
   } finally {
     conn.close();
   }
