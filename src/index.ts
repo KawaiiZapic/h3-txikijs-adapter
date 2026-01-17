@@ -112,11 +112,11 @@ const handleRequest = async (conn: tjs.Connection, handler: RequestHandler, ctx:
         while (bufOffset < length) {
           const bodyReadBuf = new Uint8Array(length);
           const readSize = await conn.read(bodyReadBuf) ?? 0;
-          bodyBuf.set(bodyReadBuf, bufOffset);
-          bufOffset += readSize;
           if (readSize === 0) {
             break;
           }
+          bodyBuf.set(bodyReadBuf.subarray(0, Math.min(readSize, length - bufOffset)), bufOffset);
+          bufOffset += readSize;
         }
         reqBody = decoder.decode(bodyBuf.subarray(0, length));
       } else {
