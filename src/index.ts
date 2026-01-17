@@ -120,7 +120,7 @@ const handleRequest = async (conn: tjs.Connection, handler: RequestHandler, ctx:
         }
         reqBody = decoder.decode(bodyBuf.subarray(0, length));
       } else {
-        throw new Error("Content-Length is required for non-GET requests with body.");
+        reqBody = undefined;
       }
     }
     const req = new H3ServerRequest(new URL(info.url, "http://" + (info.headers?.host || `${ctx.host}:${ctx.port}`)), {
