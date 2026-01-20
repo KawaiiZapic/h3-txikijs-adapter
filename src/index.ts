@@ -12,12 +12,17 @@ export interface ServeOptions {
   maxBodySize?: number; // Max body size can received from client, throw an error if size is exceeded.
   maxHeaderSize?: number; // Max headers size can received from client, throw an error if size is exceeded.
   enableLog?: boolean; // Enable a simple logging for debug.
+  enableTiming?: boolean; // Enable respose timing in log.
   signal?: AbortSignal; // A signal to stop server
+  encode?: TextEncoder["encode"]; // TextEncoder.prototype.encode implementation
+  decode?: TextDecoder["decode"]; // TextDecoder.prototype.decode implementation
 }
 
-interface ServerContext extends Required<Omit<ServeOptions, "signal">> {
+interface ServerContext extends Required<Omit<ServeOptions, "signal" | "encode" | "decode">> {
   log: (msg: string) => void;
   signal?: AbortSignal;
+  encode: TextEncoder["encode"];
+  decode: TextDecoder["decode"];
 }
 
 class H3ServerRequest extends Request {
@@ -25,7 +30,6 @@ class H3ServerRequest extends Request {
 }
 
 const AllowedMethods: HTTPMethod[] = ["CONNECT", "DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT", "TRACE"];
-const encoder = new TextEncoder();
 
 const rCode = '\r'.charCodeAt(0);
 const nCode = '\n'.charCodeAt(0);
@@ -50,14 +54,10 @@ const buildHeader = (headers: Headers): string => {
   return result;
 }
 
-const createResponse = (code: number, msg: unknown) => {
-  return encoder.encode(`HTTP/1.1 ${code}\r\nConnection: closed\r\n\r\n` + msg);
-}
-
 const handleRequest = async (conn: tjs.Connection, handler: RequestHandler, ctx: ServerContext) => {
+  const startTimeMs = ctx.enableTiming ? new Date().getTime() : 0;  // save some gc and time by skipping this
   try {
     const headerBuf = new Uint8Array(ctx.maxHeaderSize);
-    const decoder = new TextDecoder();
     let readSize = 0;
     let hasCheckMethod = false;
     let headerEndPosition = -1;
@@ -70,7 +70,7 @@ const handleRequest = async (conn: tjs.Connection, handler: RequestHandler, ctx:
       headerBuf.set(value, readSize);
       readSize += count;
       if (!hasCheckMethod && readSize >= 8) {
-        const method = decoder.decode(headerBuf);
+        const method = ctx.decode(headerBuf);
         if (!AllowedMethods.some(m => {
           return method.startsWith(m + " ");
         })) {
@@ -86,7 +86,7 @@ const handleRequest = async (conn: tjs.Connection, handler: RequestHandler, ctx:
         break;
       }
     }
-    const info = HttpHeaders(decoder.decode(headerBuf)) as RequestData;
+    const info = HttpHeaders(ctx.decode(headerBuf)) as RequestData;
     let reqBody: undefined | string | ReadableStream = void 0;
     if (!["GET", "HEAD"].includes(info.method)) {
       if (
@@ -118,7 +118,7 @@ const handleRequest = async (conn: tjs.Connection, handler: RequestHandler, ctx:
           bodyBuf.set(bodyReadBuf.subarray(0, Math.min(readSize, length - bufOffset)), bufOffset);
           bufOffset += readSize;
         }
-        reqBody = decoder.decode(bodyBuf.subarray(0, length));
+        reqBody = ctx.decode(bodyBuf.subarray(0, length));
       } else {
         reqBody = undefined;
       }
@@ -143,13 +143,15 @@ const handleRequest = async (conn: tjs.Connection, handler: RequestHandler, ctx:
       resp.headers.set("Content-Length", blob.size.toString());
       respStream = blob.stream();
     }
-    await conn.write(encoder.encode(`HTTP/1.1 ${resp.status} ${resp.statusText}\r\n${buildHeader(resp.headers)}\r\n`));
+    await conn.write(ctx.encode(`HTTP/1.1 ${resp.status} ${resp.statusText}\r\n${buildHeader(resp.headers)}\r\n`));
     await respStream.pipeTo(conn.writable);
-    ctx.log(`${req.method} ${req.url} -> ${resp.status}`);
+    ctx.log(`${req.method} ${req.url} -> ${resp.status}${ctx.enableTiming ? ` (${new Date().getTime() - startTimeMs}ms)` : ''}`);
   } catch (e) {
     console.error(e);
     try {
-      await conn.write(createResponse(500, e));
+      await conn.write(
+        ctx.encode(`HTTP/1.1 500\r\nConnection: closed\r\n\r\n${e}`)
+      );
     } catch { }
   } finally {
     conn.close();
@@ -160,9 +162,12 @@ export const serve = async (app: H3, _options?: ServeOptions) => {
   const ctx: ServerContext = {
     maxBodySize: DEFAULT_MAX_BODY_SIZE,
     maxHeaderSize: DEFAULT_MAX_HEADER_SIZE,
-    host: "127.0.0.1",
+    host: "0.0.0.0",
     port: 3000,
     enableLog: false,
+    enableTiming: false,
+    encode: TextEncoder.prototype.encode.bind(new TextEncoder()),
+    decode: TextDecoder.prototype.decode.bind(new TextDecoder()),
     ..._options,
     log(msg: string) {
       if (!ctx.enableLog) return;
