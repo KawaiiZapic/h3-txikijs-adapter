@@ -1,3 +1,12 @@
+# DEPRECATED
+Since txiki.js v26.3.0, txiki.js now has a built-in http server witch can be used with any fetch compatible server.
+```javascript
+tjs.serve({
+  port: 3000,
+  fetch: new H3().fetch
+});
+
+```
 # h3-txikijs-adapter
 
 A H3@2.0 adapter for [txiki.js](https://github.com/saghul/txiki.js)
